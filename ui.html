@@ -1,0 +1,1560 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>TruckTalk Connect</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Google Sans', Roboto, Arial, sans-serif;
+            font-size: 14px; line-height: 1.5; color: #202124; background: #fff;
+            height: 100vh; display: flex; flex-direction: column; overflow: auto;
+        }
+        .header { display: flex; justify-content: space-between; align-items: center; padding: 16px; border-bottom: 1px solid #dadce0; background: #fff; }
+        .header h1 { font-size: 16px; font-weight: 500; color: #202124; }
+        .close-btn { background: none; border: none; font-size: 18px; cursor: pointer; color: #5f6368; padding: 4px; }
+        .close-btn:hover { background: #f8f9fa; border-radius: 4px; }
+        .tabs { display: flex; border-bottom: 1px solid #dadce0; background: #fff; }
+        .tab { flex: 1; padding: 12px; text-align: center; background: none; border: none; cursor: pointer; font-size: 14px; color: #5f6368; position: relative; }
+        .tab.active { color: #1a73e8; }
+        .tab.active::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 2px; background: #1a73e8; }
+        .tab-content { display: none; flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 16px; }
+        .tab-content.active { display: flex; flex-direction: column; }
+        .welcome-message { background: #f8f9fa; border: 1px solid #dadce0; border-radius: 8px; padding: 12px; margin-bottom: 16px; color: #5f6368; }
+        .analyze-btn { background: #1a73e8; color: white; border: none; border-radius: 24px; padding: 10px 24px; font-size: 14px; font-weight: 500; cursor: pointer; margin-bottom: 16px; transition: background 0.2s; }
+        .analyze-btn:hover { background: #1557b0; }
+        .analyze-btn:disabled { background: #dadce0; color: #5f6368; cursor: not-allowed; }
+        .clear-chat-btn { background: #fff; color: #5f6368; border: 1px solid #dadce0; border-radius: 24px; padding: 8px 16px; font-size: 12px; cursor: pointer; margin-bottom: 16px; width: max-content; }
+        .clear-chat-btn:hover { background: #f8f9fa; }
+        .chat-area { 
+            flex: 1; 
+            min-height: 200px; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 8px; 
+            padding: 8px 0;
+        }
+        .message { 
+            margin-bottom: 0; 
+            padding: 12px 16px; 
+            border-radius: 18px; 
+            max-width: 85%; 
+            word-wrap: break-word;
+            position: relative;
+            animation: messageSlide 0.3s ease-out;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
+        .message.user { 
+            background: linear-gradient(135deg, #1a73e8 0%, #4285f4 100%); 
+            color: white;
+            align-self: flex-end; 
+            border-radius: 18px 18px 4px 18px;
+            margin-left: 15%;
+        }
+        .message.assistant { 
+            background: #ffffff; 
+            border: 1px solid #e8eaed; 
+            align-self: flex-start;
+            border-radius: 18px 18px 18px 4px;
+            margin-right: 15%;
+        }
+        .message-header {
+            font-size: 11px;
+            color: #5f6368;
+            margin-bottom: 4px;
+            font-weight: 500;
+        }
+        .message.user .message-header {
+            color: rgba(255, 255, 255, 0.8);
+        }
+        .message-content {
+            line-height: 1.4;
+        }
+        .message-time {
+            font-size: 10px;
+            color: #5f6368;
+            opacity: 0;
+            position: absolute;
+            bottom: -18px;
+            right: 8px;
+            transition: opacity 0.2s ease;
+        }
+        .message.user .message-time {
+            color: rgba(255, 255, 255, 0.7);
+            right: auto;
+            left: 8px;
+        }
+        .message:hover .message-time {
+            opacity: 1;
+        }
+        .typing-indicator {
+            display: none;
+            align-self: flex-start;
+            background: #ffffff;
+            border: 1px solid #e8eaed;
+            border-radius: 18px;
+            padding: 12px 16px;
+            margin-right: 15%;
+        }
+        .typing-indicator.show {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .typing-dot {
+            width: 4px;
+            height: 4px;
+            background: #5f6368;
+            border-radius: 50%;
+            animation: typing 1.4s infinite;
+        }
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes typing {
+            0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+            30% { transform: translateY(-8px); opacity: 1; }
+        }
+        @keyframes messageSlide {
+            from { 
+                opacity: 0; 
+                transform: translateY(10px); 
+            }
+            to { 
+                opacity: 1; 
+                transform: translateY(0); 
+            }
+        }
+        .message pre {
+            background: rgba(0, 0, 0, 0.05);
+            border-radius: 6px;
+            padding: 12px;
+            margin: 8px 0;
+            font-family: 'Roboto Mono', monospace;
+            font-size: 13px;
+            overflow-x: auto;
+            border-left: 3px solid #1a73e8;
+        }
+        .message.user pre {
+            background: rgba(255, 255, 255, 0.15);
+            border-left-color: rgba(255, 255, 255, 0.5);
+        }
+        .message-actions {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            display: flex;
+            gap: 4px;
+        }
+        .message:hover .message-actions {
+            opacity: 1;
+        }
+        .action-btn {
+            background: rgba(255, 255, 255, 0.9);
+            border: none;
+            border-radius: 4px;
+            padding: 4px 6px;
+            font-size: 10px;
+            cursor: pointer;
+            color: #5f6368;
+            transition: background 0.2s ease;
+        }
+        .action-btn:hover {
+            background: rgba(255, 255, 255, 1);
+        }
+        .message.user .action-btn {
+            background: rgba(255, 255, 255, 0.2);
+            color: rgba(255, 255, 255, 0.9);
+        }
+        .message.user .action-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .message {
+                max-width: 90%;
+                margin-left: 5%;
+                margin-right: 5%;
+            }
+            .message.user {
+                margin-left: 10%;
+                margin-right: 5%;
+            }
+            .message.assistant {
+                margin-left: 5%;
+                margin-right: 10%;
+            }
+            .chat-area {
+                padding: 4px 8px;
+            }
+            .message {
+                padding: 10px 14px;
+                font-size: 14px;
+            }
+            .action-btn {
+                padding: 6px 8px;
+                font-size: 11px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .message {
+                max-width: 95%;
+                margin-left: 2.5%;
+                margin-right: 2.5%;
+                border-radius: 16px;
+            }
+            .message.user {
+                border-radius: 16px 16px 4px 16px;
+                margin-left: 5%;
+                margin-right: 2.5%;
+            }
+            .message.assistant {
+                border-radius: 16px 16px 16px 4px;
+                margin-left: 2.5%;
+                margin-right: 5%;
+            }
+            .message-actions {
+                position: relative;
+                top: auto;
+                right: auto;
+                opacity: 1;
+                margin-top: 8px;
+                justify-content: flex-end;
+            }
+            .message-time {
+                position: relative;
+                bottom: auto;
+                right: auto;
+                left: auto;
+                margin-top: 4px;
+                opacity: 0.7;
+            }
+        }
+        
+        /* Accessibility improvements */
+        .message {
+            outline: none;
+        }
+        .message:focus-within {
+            box-shadow: 0 0 0 2px #1a73e8, 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
+        .action-btn:focus {
+            outline: 2px solid #1a73e8;
+            outline-offset: 1px;
+        }
+        
+        /* High contrast mode support */
+        @media (prefers-contrast: high) {
+            .message.user {
+                background: #0066cc;
+                border: 2px solid #ffffff;
+            }
+            .message.assistant {
+                background: #ffffff;
+                border: 2px solid #000000;
+                color: #000000;
+            }
+            .action-btn {
+                border: 1px solid #000000;
+            }
+        }
+        
+        /* Reduced motion support */
+        @media (prefers-reduced-motion: reduce) {
+            .message {
+                animation: none;
+            }
+            .typing-dot {
+                animation: none;
+                opacity: 0.6;
+            }
+            .chat-area {
+                scroll-behavior: auto;
+            }
+        }
+        
+        /* Dark mode support */
+        @media (prefers-color-scheme: dark) {
+            .message.assistant {
+                background: #2d3748;
+                border-color: #4a5568;
+                color: #e2e8f0;
+            }
+            .message-time {
+                color: #a0aec0;
+            }
+            .message.user .message-time {
+                color: rgba(255, 255, 255, 0.8);
+            }
+            .typing-indicator {
+                background: #2d3748;
+                border-color: #4a5568;
+            }
+            .typing-dot {
+                background: #a0aec0;
+            }
+            .action-btn {
+                background: rgba(45, 55, 72, 0.9);
+                color: #e2e8f0;
+            }
+            .action-btn:hover {
+                background: rgba(45, 55, 72, 1);
+            }
+        }
+        
+        /* Screen reader only text */
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+        .header-mapping { background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 12px; margin: 12px 0; }
+        .mapping-title { font-weight: 500; margin-bottom: 8px; color: #856404; }
+        .mapping-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .mapping-select { padding: 4px 8px; border: 1px solid #dadce0; border-radius: 4px; font-size: 12px; }
+        .confirm-mapping-btn { background: #34a853; color: white; border: none; border-radius: 4px; padding: 8px 16px; font-size: 12px; cursor: pointer; margin-top: 8px; }
+        .issues-section { margin-bottom: 20px; }
+        .issues-title { font-size: 16px; font-weight: 500; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+        .issue { background: #fff; border: 1px solid #dadce0; border-left: 4px solid #ea4335; border-radius: 4px; padding: 12px; margin-bottom: 8px; }
+        .issue.warn { border-left-color: #fbbc04; }
+        .issue-code { font-size: 12px; color: #5f6368; text-transform: uppercase; margin-bottom: 4px; }
+        .issue-message { font-weight: 500; margin-bottom: 4px; }
+        .issue-suggestion { font-size: 13px; color: #5f6368; font-style: italic; }
+        /* Auto-fix card */
+        .autofix-card { 
+            background: #fff; 
+            border:1px solid #dadce0; 
+            border-radius:12px; 
+            padding:12px 16px; 
+            margin:12px 0; 
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+        .autofix-header { 
+            display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:6px;
+        }
+        .autofix-title { 
+            display:flex; align-items:center; gap:8px;
+            font-size: 15px; font-weight: 600; color:#202124; 
+        }
+        .autofix-title .autofix-icon {
+            display:inline-flex; align-items:center; justify-content:center; 
+            width:22px; height:22px; border-radius:50%;
+            background:#e8f0fe; color:#1a73e8; font-weight:700;
+        }
+        .autofix-badges { display:flex; align-items:center; gap:6px; }
+        .autofix-badge { 
+            display:inline-block; padding:2px 8px; font-size:12px; border-radius:999px; 
+            background:#f1f3f4; color:#5f6368; border:1px solid #e0e3e7; 
+        }
+        .autofix-badge.fix { background:#e8f5e8; color:#137333; border-color:#b7e1cd; }
+        .autofix-desc { font-size:13px; color:#5f6368; margin-bottom:8px; }
+        .autofix-controls { 
+            display:flex; align-items:center; gap:8px; flex-wrap:wrap; 
+            padding:8px; border:1px dashed #e0e3e7; border-radius:8px; background:#fafafa; margin-bottom:8px;
+        }
+        .autofix-controls small { color:#5f6368; }
+        .autofix-list { 
+            display:flex; flex-direction:column; gap:6px; margin-top:6px; 
+            border-top:1px solid #eceff1; padding-top:8px;
+        }
+        .autofix-item { 
+            display:flex; align-items:center; gap:8px; 
+            padding:8px; border:1px solid #eceff1; border-radius:8px; background:#fff;
+        }
+        .autofix-item .icon { width:18px; height:18px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:12px; }
+        .autofix-item .icon.create { background:#e8f0fe; color:#1a73e8; }
+        .autofix-item .icon.time { background:#ede7f6; color:#5e35b1; }
+        .autofix-item .summary { font-size:13px; color:#202124; }
+        .autofix-item .meta { font-size:12px; color:#5f6368; margin-left:auto; }
+        .autofix-actions { display:flex; gap:8px; margin-top:10px; }
+        .autofix-btn { padding: 8px 12px; border: 1px solid #dadce0; border-radius: 6px; background: #fff; color: #1a73e8; cursor: pointer; font-size: 13px; transition: all .15s ease; }
+        .autofix-btn:hover { background:#f8f9fa; }
+        .autofix-btn.primary { background:#1a73e8; color:#fff; border-color:#1a73e8; }
+        .autofix-btn.primary:hover { background:#1557b0; }
+        .autofix-btn.success { background:#34a853; color:#fff; border-color:#34a853; }
+        .autofix-btn.success:hover { background:#2d9e47; }
+        .autofix-btn:disabled { background:#f1f3f4; color:#9aa0a6; border-color:#e0e3e7; cursor:not-allowed; }
+        .autofix-hint { font-size:12px; color:#5f6368; margin-left:auto; }
+        .tz-select { min-width: 170px; }
+        .json-output { background: #f8f9fa; border: 1px solid #dadce0; border-radius: 8px; padding: 16px; margin-bottom: 16px; font-family: 'Roboto Mono', monospace; font-size: 12px; line-height: 1.4; white-space: pre-wrap; max-height: 300px; overflow-y: auto; }
+        /* Much taller container for raw AnalysisResult */
+        #raw-json {
+            max-height: 95vh;
+            height: 90vh;
+            overflow-y: auto;
+        }
+        .action-buttons { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+        .copy-btn, .reanalyze-btn, .preview-push-btn, .push-trucktalk-btn { 
+            padding: 6px 10px; border: 1px solid #dadce0; border-radius: 4px; 
+            background: #fff; color: #1a73e8; cursor: pointer; font-size: 12px; 
+            line-height: 1.2; white-space: normal; word-break: break-word; max-width: 100%;
+            transition: all 0.15s ease; 
+        }
+        .copy-btn:hover, .reanalyze-btn:hover, .preview-push-btn:hover, .push-trucktalk-btn:hover { background: #f8f9fa; }
+        .loading { display: none; text-align: center; padding: 20px; color: #5f6368; }
+        .spinner { display: inline-block; width: 20px; height: 20px; border: 2px solid #dadce0; border-radius: 50%; border-top-color: #1a73e8; animation: spin 1s ease-in-out infinite; margin-right: 8px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .success-message { background: #e8f5e8; color: #137333; border: 1px solid #81c784; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; display:flex; align-items:flex-start; gap:10px; }
+        .success-message::before { content:"✓"; font-weight:700; }
+        .hidden { display: none !important; }
+        .meta-info { font-size: 12px; color: #5f6368; margin-bottom: 16px; padding: 8px; background: #f8f9fa; border-radius: 4px; }
+        /* Mapping (read-only) section */
+        .mapping-readonly { background:#fff; border:1px solid #dadce0; border-radius:12px; padding:12px 16px; margin-bottom:16px; box-shadow:0 1px 2px rgba(0,0,0,0.04); }
+        .mapping-grid { display:flex; flex-direction:column; gap:8px; font-size:13px; }
+        .map-row { display:flex; flex-direction:column; gap:4px; padding:10px; border:1px solid #eceff1; border-radius:8px; background:#fafafa; }
+        .map-key { color:#5f6368; font-weight:500; }
+        .map-value { 
+            color:#202124; background:#f1f3f4; border:none; 
+            border-radius:999px; padding:4px 10px; 
+            display:inline-block; width:max-content; max-width:100%;
+            font-family:'Roboto Mono', monospace; font-size:12px; 
+        }
+        .section-label { font-weight: 500; margin-bottom: 8px; }
+
+        /* Results layout enhancements */
+        #results-tab .results-container { max-width: 960px; width: 100%; margin: 0 auto; }
+        #results-tab .card { background:#fff; border:1px solid #dadce0; border-radius:8px; padding:12px 16px; margin-bottom:16px; }
+        #results-tab .card-header { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:8px; }
+        #results-tab .card-title { font-size:16px; font-weight:500; color:#202124; }
+        #results-tab .badge { display:inline-block; padding:2px 8px; font-size:12px; border-radius:999px; background:#f1f3f4; color:#5f6368; border:1px solid #e0e3e7; }
+        #results-tab .badge.error { background:#fdeaea; color:#b31412; border-color:#f6c7c7; }
+        #results-tab .badge.warn { background:#fff7e6; color:#8a6d1a; border-color:#ffe3a3; }
+
+        /* Make existing sections look like cards without changing markup too much */
+        #results-tab #success-message { box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+        #results-tab #issues-section, 
+        #results-tab #warnings-section, 
+        #results-tab #json-section, 
+        #results-tab #mapping-readonly-section, 
+        #results-tab #raw-json, 
+        #results-tab #meta-info { border:1px solid #dadce0; border-radius:8px; background:#fff; padding:12px 16px; }
+
+        /* Titles act like card headers */
+        #results-tab .issues-title, 
+        #results-tab .section-label { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:8px; }
+        #results-tab #issues-count, 
+        #results-tab #warnings-count { padding:2px 8px; border-radius:999px; font-size:12px; border:1px solid #e0e3e7; background:#f1f3f4; color:#5f6368; }
+        #results-tab #issues-count { background:#fdeaea; color:#b31412; border-color:#f6c7c7; }
+        #results-tab #warnings-count { background:#fff7e6; color:#8a6d1a; border-color:#ffe3a3; }
+
+        /* Issue chips */
+        .issue { border-radius:8px; }
+        .issue-code { display:inline-block; padding:2px 6px; background:#f1f3f4; border:1px solid #e0e3e7; border-radius:6px; }
+        .issue.warn .issue-code { background:#fff7e6; border-color:#ffe3a3; color:#8a6d1a; }
+
+        /* JSON section tweaks */
+        #json-section .action-buttons { 
+            position: static;
+            display:flex; justify-content:flex-end; gap:6px; flex-wrap: wrap;
+            margin: 0 0 12px 0; padding: 0; border: none; background: transparent;
+            backdrop-filter: none;
+        }
+        .copy-btn, .reanalyze-btn, .preview-push-btn, .push-trucktalk-btn { transition: all 0.15s ease; }
+        .preview-push-btn { background:#1a73e8; color:#fff; border-color:#1a73e8; }
+        .preview-push-btn:hover { background:#1557b0; color:#fff; }
+        .push-trucktalk-btn { background:#34a853; color:#fff; border-color:#34a853; position: relative; }
+        .push-trucktalk-btn:hover { background:#2d9e47; color:#fff; }
+        .push-trucktalk-btn:disabled { background:#dadce0; color:#5f6368; cursor: not-allowed; border-color:#dadce0; }
+        .push-trucktalk-btn.loading { color: transparent; }
+        .push-trucktalk-btn.loading::after { 
+            content: '';
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            top: 50%;
+            left: 50%;
+            margin-left: -8px;
+            margin-top: -8px;
+            border: 2px solid #ffffff;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 1s linear infinite;
+        }
+        .json-output { max-height: 400px; }
+
+        /* Dark mode adjustments for cards */
+        @media (prefers-color-scheme: dark) {
+            #results-tab .card,
+            #results-tab #issues-section,
+            #results-tab #warnings-section,
+            #results-tab #json-section,
+            #results-tab #mapping-readonly-section,
+            #results-tab #raw-json,
+            #results-tab #meta-info { background:#2d3748; border-color:#4a5568; }
+            #results-tab .card-title { color:#e2e8f0; }
+            #results-tab .badge { background:#374357; color:#cbd5e0; border-color:#4a5568; }
+            #results-tab .badge.error { background:#5b2c2c; color:#fed7d7; border-color:#742a2a; }
+            #results-tab .badge.warn { background:#5a4a1f; color:#fce588; border-color:#795c1f; }
+            #json-section .action-buttons { background:#2d3748; border-bottom-color:#4a5568; }
+        }
+    </style>
+</head>
+<body>
+<div class="header">
+    <h1>TruckTalk Connect</h1>
+    <button class="close-btn" onclick="closeDialog()">✕</button>
+</div>
+
+<div class="tabs">
+    <button class="tab active" onclick="switchTab('chat')">Chat</button>
+    <button class="tab" onclick="switchTab('results')">Results</button>
+</div>
+
+<div id="chat-tab" class="tab-content active">
+    <div class="welcome-message">
+        How can I assist you today?
+    </div>
+
+    <button class="analyze-btn" onclick="analyzeSheet()">
+        Analyze current tab
+    </button>
+
+    <button class="clear-chat-btn" onclick="clearChat()" title="Clear chat messages in this sidebar">
+        Clear chat
+    </button>
+
+    <div class="chat-area" id="chat-messages" role="log" aria-live="polite" aria-label="Chat conversation">
+        <div class="typing-indicator" id="typing-indicator" aria-label="TruckTalk is typing" role="status">
+            <div class="typing-dot" aria-hidden="true"></div>
+            <div class="typing-dot" aria-hidden="true"></div>
+            <div class="typing-dot" aria-hidden="true"></div>
+            <span class="sr-only">TruckTalk is analyzing...</span>
+        </div>
+    </div>
+
+    <div id="header-mapping" class="header-mapping hidden">
+        <div class="mapping-title">Some header mappings need to be confirmed</div>
+        <div id="mapping-items"></div>
+        <button class="confirm-mapping-btn" onclick="confirmHeaderMapping()">
+            → Confirm header mapping
+        </button>
+    </div>
+
+    <div class="loading" id="loading">
+        <div class="spinner"></div>
+        Analyzing sheet...
+    </div>
+</div>
+
+<div id="results-tab" class="tab-content">
+  <div class="results-container">
+    <div id="success-message" class="success-message hidden">
+        Analysis complete! Your load data has been processed.
+    </div>
+
+    <div id="issues-section" class="issues-section hidden">
+        <div class="issues-title">
+            Issues
+            <span id="issues-count"></span>
+        </div>
+        <div id="issues-list"></div>
+        <div id="autofix-container" class="autofix-card hidden">
+            <div class="autofix-header">
+                <div class="autofix-title">
+                    <span class="autofix-icon">⚙︎</span>
+                    Auto‑Fix Assistant
+                </div>
+                <div class="autofix-badges">
+                    <span id="autofix-badge-summary" class="autofix-badge">Eligible fixes</span>
+                </div>
+            </div>
+            <div class="autofix-desc">Preview safe, non-destructive fixes for common issues.</div>
+            <div class="autofix-controls">
+                <label style="display:flex; align-items:center; gap:6px;">
+                    <input type="checkbox" id="tz-apply-checkbox"> Apply timezone offset to PU/DEL when missing
+                </label>
+                <select id="tz-offset-select" class="tz-select" disabled>
+                    <option value="">Select offset…</option>
+                    <option value="-05:00">UTC-05:00 (EST)</option>
+                    <option value="-04:00">UTC-04:00 (EDT)</option>
+                    <option value="-06:00">UTC-06:00 (CST)</option>
+                    <option value="-07:00">UTC-07:00 (MST)</option>
+                    <option value="-08:00">UTC-08:00 (PST)</option>
+                    <option value="+00:00">UTC+00:00 (UTC)</option>
+                    <option value="+01:00">UTC+01:00 (CET)</option>
+                    <option value="+02:00">UTC+02:00 (EET)</option>
+                </select>
+                <span class="autofix-hint">Strict timezone handling remains default.</span>
+            </div>
+            <div id="autofix-plan" class="autofix-list">
+                <div class="autofix-item" style="opacity:.75;">
+                    <span class="icon create">＋</span>
+                    <span class="summary">Click “Suggest Auto‑Fixes” to see a plan.</span>
+                </div>
+            </div>
+            <div class="autofix-actions">
+                <button id="suggest-autofix-btn" class="autofix-btn primary" onclick="suggestAutoFixes()">Suggest Auto‑Fixes</button>
+                <button class="autofix-btn success" id="apply-autofix-btn" onclick="applySelectedAutoFixes()" disabled>Apply Selected Auto‑Fixes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Warnings (shown on success when warn issues exist) -->
+    <div id="warnings-section" class="issues-section hidden">
+        <div class="issues-title">
+            Warnings
+            <span id="warnings-count"></span>
+        </div>
+        <div id="warnings-list"></div>
+    </div>
+
+    <!-- Status normalization (user-mapped) -->
+    <div id="status-normalization-section" class="issues-section hidden">
+        <div class="issues-title">
+            Status Normalization (optional)
+            <span id="status-unique-count"></span>
+        </div>
+        <div id="status-map-container" class="mapping-readonly"></div>
+        <div class="action-buttons">
+            <button class="copy-btn" onclick="saveStatusMapping()">Save Mapping</button>
+            <button class="reanalyze-btn" onclick="applyStatusToSheet()" title="Writes mapped values back to the sheet after confirm">Apply To Sheet</button>
+        </div>
+    </div>
+
+    <!-- Broker normalization (user-mapped) -->
+    <div id="broker-normalization-section" class="issues-section hidden">
+        <div class="issues-title">
+            Broker Normalization (optional)
+            <span id="broker-unique-count"></span>
+        </div>
+        <div id="broker-map-container" class="mapping-readonly"></div>
+        <div class="action-buttons">
+            <button class="copy-btn" onclick="saveBrokerMapping()">Save Mapping</button>
+            <button class="reanalyze-btn" onclick="applyBrokerToSheet()" title="Writes mapped values back to the sheet after confirm">Apply To Sheet</button>
+        </div>
+    </div>
+
+    <!-- Mapping used (contract requirement surface) -->
+    <div id="mapping-readonly-section" class="mapping-readonly hidden">
+        <div class="section-label">Mapping used (Header → Field)</div>
+        <div id="mapping-grid" class="mapping-grid"></div>
+    </div>
+
+    <!-- Raw AnalysisResult toggle (optional helper) -->
+    <div id="raw-toggle-section" class="hidden" style="margin-bottom:8px;">
+        <label><input type="checkbox" id="show-raw-toggle" onchange="toggleRawResult()"> Show raw AnalysisResult</label>
+    </div>
+    <div id="raw-json" class="json-output hidden"></div>
+
+    <div id="json-section" class="hidden">
+        <div class="action-buttons">
+            <button class="copy-btn" onclick="copyJSON()">Copy JSON</button>
+            <button class="preview-push-btn" onclick="previewPush()">Preview Push</button>
+            <button class="push-trucktalk-btn" onclick="pushToTruckTalk()" title="Demo feature - pushes to mock API endpoint (https://api.trucktalk.ai/loads/import)">
+                🚛 Push to TruckTalk (Demo)
+            </button>
+            <button class="reanalyze-btn" onclick="reanalyze()">Re-analyze</button>
+        </div>
+        <div id="json-output" class="json-output"></div>
+    </div>
+
+    <div id="meta-info" class="meta-info hidden"></div>
+  </div>
+</div>
+
+<script>
+    /**
+     * TruckTalk Connect - Client-side JavaScript
+     * Handles UI interactions and communication with Google Apps Script server
+     */
+
+// Global state
+    let currentAnalysisResult = null;
+    let currentHeaderOverrides = {};
+    let currentJSONOutput = null;
+    let currentAutoFixPlan = null;
+
+    document.addEventListener('DOMContentLoaded', function() {
+        loadChatHistory();
+        initializeEventListeners();
+        addChatMessage('assistant', 'Welcome to TruckTalk Connect! Click "Analyze current tab" to get started.');
+    });
+
+    function initializeEventListeners() {
+        console.log('TruckTalk Connect UI initialized');
+    }
+
+    function switchTab(tabName) {
+        document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+        document.querySelector(`[onclick="switchTab('${tabName}')"]`).classList.add('active');
+        document.getElementById(`${tabName}-tab`).classList.add('active');
+    }
+
+    function analyzeSheet() {
+        showLoading();
+        clearResults();
+        addChatMessage('user', 'Analyze this tab.');
+        google.script.run
+            .withSuccessHandler(handleAnalysisResult)
+            .withFailureHandler(handleError)
+            .analyzeActiveSheet({ headerOverrides: currentHeaderOverrides });
+    }
+
+    function handleAnalysisResult(result) {
+        hideLoading();
+        currentAnalysisResult = result;
+        console.log('Analysis result:', result);
+
+        if (result.ok) {
+            addChatMessage('assistant', `Great! Found ${result.loads.length} valid loads. Analysis complete.`);
+            displaySuccessResults(result);
+            currentJSONOutput = result.loads;
+        } else {
+            const errorCount = result.issues.filter(i => i.severity === 'error').length;
+            const warnCount = result.issues.filter(i => i.severity === 'warn').length;
+            let message = `Found ${result.issues.length} issues`;
+            if (errorCount > 0) message += ` (${errorCount} errors`;
+            if (warnCount > 0) message += `, ${warnCount} warnings`;
+            if (errorCount > 0) message += ')';
+            message += '. Please review and fix the issues below.';
+            addChatMessage('assistant', message);
+            displayIssues(result);
+            checkHeaderMappingNeeded(result);
+        }
+
+        // NEW: Always show mapping + meta per contract
+        displayMapping(result.mapping || {});
+        displayMetaInfo(result.meta);
+
+        // Enable raw JSON toggle
+        const rawToggle = document.getElementById('raw-toggle-section');
+        const rawBox = document.getElementById('raw-json');
+        const cb = document.getElementById('show-raw-toggle');
+        if (rawToggle && rawBox) {
+            rawToggle.classList.remove('hidden');
+            if (cb) cb.checked = false;
+            rawBox.classList.add('hidden');
+            rawBox.textContent = '';
+        }
+
+        switchTab('results');
+    }
+
+    function displaySuccessResults(result) {
+        document.getElementById('success-message').classList.remove('hidden');
+        document.getElementById('issues-section').classList.add('hidden');
+        document.getElementById('json-section').classList.remove('hidden');
+
+        displayWarnings(result);
+        displayJSON(result.loads);
+    }
+
+    function displayIssues(result) {
+        const issuesSection = document.getElementById('issues-section');
+        const issuesList = document.getElementById('issues-list');
+        const issuesCount = document.getElementById('issues-count');
+
+        issuesSection.classList.remove('hidden');
+        document.getElementById('success-message').classList.add('hidden');
+        document.getElementById('json-section').classList.add('hidden');
+
+        issuesList.innerHTML = '';
+        const errorCount = result.issues.filter(i => i.severity === 'error').length;
+        const warnCount = result.issues.filter(i => i.severity === 'warn').length;
+        issuesCount.textContent = `(${errorCount} errors, ${warnCount} warnings)`;
+
+        const errors = result.issues.filter(i => i.severity === 'error');
+        const warnings = result.issues.filter(i => i.severity === 'warn');
+
+        errors.forEach(issue => { issuesList.appendChild(createIssueElement(issue)); });
+        warnings.forEach(issue => { issuesList.appendChild(createIssueElement(issue)); });
+
+        // Show auto-fix card when there are relevant issues
+        const autofixCard = document.getElementById('autofix-container');
+        const hasMissingCols = result.issues.some(i => i.code === 'MISSING_COLUMN');
+        const hasDateProblems = result.issues.some(i => (
+            i.code === 'BAD_DATE_FORMAT' ||
+            i.code === 'TIMEZONE_MISSING' ||
+            i.code === 'NON_ISO_OUTPUT' ||
+            i.code === 'ASSUMED_TIMEZONE'
+        ));
+        if (autofixCard) {
+            if (hasMissingCols || hasDateProblems) {
+                autofixCard.classList.remove('hidden');
+                // Update badge summary
+                const badge = document.getElementById('autofix-badge-summary');
+                if (badge) {
+                    const parts = [];
+                    if (hasMissingCols) parts.push('Columns');
+                    if (hasDateProblems) parts.push('Dates/Time');
+                    badge.textContent = parts.length ? `Eligible: ${parts.join(' + ')}` : 'Eligible fixes';
+                }
+                // Wire TZ checkbox to toggle select enablement
+                const tzCb = document.getElementById('tz-apply-checkbox');
+                const tzSel = document.getElementById('tz-offset-select');
+                if (tzCb && tzSel) {
+                    tzSel.disabled = !tzCb.checked;
+                    tzCb.onchange = () => { tzSel.disabled = !tzCb.checked; };
+                }
+            } else {
+                autofixCard.classList.add('hidden');
+            }
+        }
+    }
+
+    function createIssueElement(issue) {
+        const div = document.createElement('div');
+        div.className = `issue ${issue.severity}`;
+        let html = `
+        <div class="issue-code">${escapeHtml(issue.code)}</div>
+        <div class="issue-message">${escapeHtml(issue.message)}</div>
+    `;
+        if (issue.suggestion) {
+            html += `<div class="issue-suggestion">Suggestion: ${escapeHtml(issue.suggestion)}</div>`;
+        }
+        if (issue.rows && issue.rows.length > 0) {
+            html += `<div class="issue-suggestion">Affected rows: ${issue.rows.join(', ')}</div>`;
+        }
+        div.innerHTML = html;
+        return div;
+    }
+
+    function displayJSON(loads) {
+        const jsonOutput = document.getElementById('json-output');
+        const formattedJSON = JSON.stringify(loads, null, 2);
+        jsonOutput.textContent = formattedJSON;
+        currentJSONOutput = loads;
+    }
+
+    function copyJSON() {
+        if (!currentJSONOutput) { showNotification('No JSON data to copy', 'error'); return; }
+        const jsonString = JSON.stringify(currentJSONOutput, null, 2);
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(jsonString).then(() => {
+                showNotification('JSON copied to clipboard!', 'success');
+            }).catch(() => { fallbackCopyToClipboard(jsonString); });
+        } else {
+            fallbackCopyToClipboard(jsonString);
+        }
+    }
+
+    function fallbackCopyToClipboard(text) {
+        const textArea = document.createElement('textarea');
+        textArea.value = text; textArea.style.position = 'fixed'; textArea.style.opacity = '0';
+        document.body.appendChild(textArea); textArea.focus(); textArea.select();
+        try { document.execCommand('copy'); showNotification('JSON copied to clipboard!', 'success'); }
+        catch { showNotification('Failed to copy JSON', 'error'); }
+        finally { document.body.removeChild(textArea); }
+    }
+
+    function previewPush() {
+        if (!currentJSONOutput) { showNotification('No data to preview', 'error'); return; }
+        const pushPayload = { source: 'sheets-addon', version: 1, loads: currentJSONOutput };
+        addChatMessage('assistant', `Preview push payload:\n\`\`\`json\n${JSON.stringify(pushPayload, null, 2)}\n\`\`\``);
+        switchTab('chat');
+    }
+
+    function reanalyze() { analyzeSheet(); }
+
+    function pushToTruckTalk() {
+        if (!currentJSONOutput) { 
+            showNotification('No data to push to TruckTalk', 'error'); 
+            return; 
+        }
+
+        const pushBtn = document.querySelector('.push-trucktalk-btn');
+        if (!pushBtn) return;
+
+        // Show loading state
+        pushBtn.disabled = true;
+        pushBtn.classList.add('loading');
+        
+        addChatMessage('user', `Pushing ${currentJSONOutput.length} loads to TruckTalk...`);
+
+        google.script.run
+            .withSuccessHandler(handlePushSuccess)
+            .withFailureHandler(handlePushError)
+            .postToTruckTalk(currentJSONOutput);
+    }
+
+    function handlePushSuccess(result) {
+        const pushBtn = document.querySelector('.push-trucktalk-btn');
+        if (pushBtn) {
+            pushBtn.disabled = false;
+            pushBtn.classList.remove('loading');
+        }
+
+        if (result.success) {
+            addChatMessage('assistant', `✅ **Push Successful!**\n\n` +
+                `• Endpoint: ${result.endpoint}\n` +
+                `• Status: ${result.status}\n` +
+                `• Loads pushed: ${result.loadsCount}\n` +
+                `• Message: ${result.message}\n\n` +
+                `**API Response:**\n\`\`\`json\n${result.responseBody}\n\`\`\``);
+            
+            showNotification('Successfully pushed loads to TruckTalk!', 'success');
+        } else {
+            addChatMessage('assistant', `❌ **Push Failed**\n\n` +
+                `• Endpoint: ${result.endpoint}\n` +
+                `• Status: ${result.status}\n` +
+                `• Error: ${result.message}\n` +
+                (result.responseBody ? `\n**Response:**\n\`\`\`\n${result.responseBody}\n\`\`\`` : ''));
+            
+            showNotification('Failed to push loads to TruckTalk', 'error');
+        }
+        
+        switchTab('chat');
+    }
+
+    function handlePushError(error) {
+        const pushBtn = document.querySelector('.push-trucktalk-btn');
+        if (pushBtn) {
+            pushBtn.disabled = false;
+            pushBtn.classList.remove('loading');
+        }
+
+        console.error('Push to TruckTalk failed:', error);
+        addChatMessage('assistant', `❌ **Push Error**\n\nFailed to communicate with TruckTalk API: ${error.message || 'Unknown error occurred'}`);
+        showNotification('Push to TruckTalk failed due to network error', 'error');
+        switchTab('chat');
+    }
+
+    function checkHeaderMappingNeeded(result) {
+        const mappingIssues = result.issues.filter(i => i.code === 'AMBIGUOUS_HEADER');
+        if (mappingIssues.length > 0) {
+            showHeaderMappingDialog(result.mapping);
+        }
+    }
+
+    function showHeaderMappingDialog(currentMapping) {
+        const mappingDiv = document.getElementById('header-mapping');
+        const mappingItems = document.getElementById('mapping-items');
+        mappingDiv.classList.remove('hidden');
+        mappingItems.innerHTML = '';
+
+        Object.entries(currentMapping).forEach(([header, field]) => {
+            const item = document.createElement('div');
+            item.className = 'mapping-item';
+            item.innerHTML = `
+            <span>${escapeHtml(header)}</span>
+            <select class="mapping-select" data-header="${escapeHtml(header)}">
+                <option value="">-- Select Field --</option>
+                <option value="loadId" ${field === 'loadId' ? 'selected' : ''}>Load ID</option>
+                <option value="fromAddress" ${field === 'fromAddress' ? 'selected' : ''}>From Address</option>
+                <option value="fromAppointmentDateTimeUTC" ${field === 'fromAppointmentDateTimeUTC' ? 'selected' : ''}>Pickup Date/Time</option>
+                <option value="toAddress" ${field === 'toAddress' ? 'selected' : ''}>To Address</option>
+                <option value="toAppointmentDateTimeUTC" ${field === 'toAppointmentDateTimeUTC' ? 'selected' : ''}>Delivery Date/Time</option>
+                <option value="status" ${field === 'status' ? 'selected' : ''}>Status</option>
+                <option value="driverName" ${field === 'driverName' ? 'selected' : ''}>Driver Name</option>
+                <option value="driverPhone" ${field === 'driverPhone' ? 'selected' : ''}>Driver Phone</option>
+                <option value="unitNumber" ${field === 'unitNumber' ? 'selected' : ''}>Unit Number</option>
+                <option value="broker" ${field === 'broker' ? 'selected' : ''}>Broker</option>
+            </select>
+        `;
+            mappingItems.appendChild(item);
+        });
+
+        addChatMessage('assistant', 'Some header mappings need to be confirmed. Please review the mapping below and click "Confirm header mapping".');
+    }
+
+    function confirmHeaderMapping() {
+        const selects = document.querySelectorAll('.mapping-select');
+        const newMapping = {};
+        selects.forEach(select => {
+            const header = select.getAttribute('data-header');
+            const field = select.value;
+            if (field) newMapping[header] = field;
+        });
+        currentHeaderOverrides = newMapping;
+        document.getElementById('header-mapping').classList.add('hidden');
+        addChatMessage('user', 'Confirmed header mapping.');
+        analyzeSheet();
+    }
+
+    /* NEW: Read-only mapping surface (contract requirement) */
+    function displayMapping(mapping) {
+        const section = document.getElementById('mapping-readonly-section');
+        const grid = document.getElementById('mapping-grid');
+        if (!section || !grid) return;
+        if (!mapping || Object.keys(mapping).length === 0) {
+            section.classList.add('hidden');
+            grid.innerHTML = '';
+            return;
+        }
+        section.classList.remove('hidden');
+        grid.innerHTML = '';
+        Object.keys(mapping).sort().forEach(header => {
+            const field = mapping[header];
+            const row = document.createElement('div');
+            row.className = 'map-row';
+            const keyDiv = document.createElement('div');
+            keyDiv.className = 'map-key';
+            keyDiv.textContent = header;
+            const valDiv = document.createElement('div');
+            valDiv.className = 'map-value';
+            valDiv.textContent = field;
+            row.appendChild(keyDiv);
+            row.appendChild(valDiv);
+            grid.appendChild(row);
+        });
+    }
+
+    function addChatMessage(sender, message) {
+        const chatArea = document.getElementById('chat-messages');
+        const typingIndicator = document.getElementById('typing-indicator');
+        
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${sender}`;
+        messageDiv.setAttribute('role', 'article');
+        messageDiv.setAttribute('aria-label', `Message from ${sender === 'user' ? 'you' : 'TruckTalk Connect'}`);
+        
+        // Create message structure
+        const messageContent = document.createElement('div');
+        messageContent.className = 'message-content';
+        
+        // Format message content with better markdown support
+        let formattedMessage = escapeHtml(message)
+            .replace(/\n/g, '<br>')
+            .replace(/```json\n([\s\S]*?)\n```/g, '<pre>$1</pre>')
+            .replace(/```\n([\s\S]*?)\n```/g, '<pre>$1</pre>')
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*(.*?)\*/g, '<em>$1</em>');
+        
+        messageContent.innerHTML = formattedMessage;
+        messageDiv.appendChild(messageContent);
+        
+        // Add timestamp
+        const timestamp = document.createElement('div');
+        timestamp.className = 'message-time';
+        timestamp.textContent = formatMessageTime(new Date());
+        messageDiv.appendChild(timestamp);
+        
+        // Add message actions for long messages or code blocks
+        if (message.length > 100 || message.includes('```')) {
+            const actions = document.createElement('div');
+            actions.className = 'message-actions';
+            
+            const copyBtn = document.createElement('button');
+            copyBtn.className = 'action-btn';
+            copyBtn.textContent = 'Copy';
+            copyBtn.onclick = () => copyMessageContent(message);
+            actions.appendChild(copyBtn);
+            
+            messageDiv.appendChild(actions);
+        }
+        
+        // Insert before typing indicator
+        chatArea.insertBefore(messageDiv, typingIndicator);
+        
+        // Smooth scroll to bottom
+        setTimeout(() => {
+            chatArea.scrollTo({
+                top: chatArea.scrollHeight,
+                behavior: 'smooth'
+            });
+        }, 100);
+        
+        saveChatMessage(sender, message);
+    }
+    
+    function formatMessageTime(date) {
+        const now = new Date();
+        const diff = now - date;
+        
+        if (diff < 60000) return 'just now';
+        if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+        if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+        return date.toLocaleDateString();
+    }
+    
+    function copyMessageContent(content) {
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(content).then(() => {
+                showNotification('Message copied!', 'success');
+            }).catch(() => {
+                fallbackCopyToClipboard(content);
+            });
+        } else {
+            fallbackCopyToClipboard(content);
+        }
+    }
+    
+    function showTypingIndicator() {
+        const indicator = document.getElementById('typing-indicator');
+        if (indicator) {
+            indicator.classList.add('show');
+            const chatArea = document.getElementById('chat-messages');
+            chatArea.scrollTo({
+                top: chatArea.scrollHeight,
+                behavior: 'smooth'
+            });
+        }
+    }
+    
+    function hideTypingIndicator() {
+        const indicator = document.getElementById('typing-indicator');
+        if (indicator) {
+            indicator.classList.remove('show');
+        }
+    }
+
+    function saveChatMessage(sender, message) {
+        try {
+            const sessionKey = `trucktalk_chat_${new Date().toDateString()}`;
+            let sessionData = JSON.parse(localStorage.getItem(sessionKey) || '[]');
+            sessionData.push({ sender, message, timestamp: new Date().toISOString() });
+            localStorage.setItem(sessionKey, JSON.stringify(sessionData));
+            cleanupOldSessions();
+        } catch (e) { console.warn('Failed to save chat history:', e); }
+    }
+
+    function loadChatHistory() {
+        try {
+            const sessionKey = `trucktalk_chat_${new Date().toDateString()}`;
+            const sessionData = JSON.parse(localStorage.getItem(sessionKey) || '[]');
+            if (sessionData.length > 0) {
+                sessionData.forEach(msg => {
+                    if (msg.message !== 'Welcome to TruckTalk Connect! Click "Analyze current tab" to get started.') {
+                        const chatArea = document.getElementById('chat-messages');
+                        const typingIndicator = document.getElementById('typing-indicator');
+                        
+                        const messageDiv = document.createElement('div');
+                        messageDiv.className = `message ${msg.sender}`;
+                        
+                        const messageContent = document.createElement('div');
+                        messageContent.className = 'message-content';
+                        messageContent.innerHTML = escapeHtml(msg.message).replace(/\n/g, '<br>').replace(/```json\n([\s\S]*?)\n```/g, '<pre>$1</pre>');
+                        messageDiv.appendChild(messageContent);
+                        
+                        // Add timestamp for historical messages
+                        const timestamp = document.createElement('div');
+                        timestamp.className = 'message-time';
+                        timestamp.textContent = msg.timestamp ? formatMessageTime(new Date(msg.timestamp)) : 'earlier';
+                        messageDiv.appendChild(timestamp);
+                        
+                        chatArea.insertBefore(messageDiv, typingIndicator);
+                    }
+                });
+                const chatArea = document.getElementById('chat-messages');
+                chatArea.scrollTop = chatArea.scrollHeight;
+            }
+        } catch (e) { console.warn('Failed to load chat history:', e); }
+    }
+
+    function cleanupOldSessions() {
+        try {
+            const keys = Object.keys(localStorage).filter(key => key.startsWith('trucktalk_chat_'));
+            if (keys.length > 5) {
+                keys.sort().slice(0, keys.length - 5).forEach(key => { localStorage.removeItem(key); });
+            }
+        } catch (e) { console.warn('Failed to cleanup old sessions:', e); }
+    }
+
+    function displayMetaInfo(meta) {
+        const metaDiv = document.getElementById('meta-info');
+        metaDiv.innerHTML = `
+        <strong>Analysis completed:</strong> ${formatDateTime(meta.analyzedAt)}<br>
+        <strong>Rows analyzed:</strong> ${meta.analyzedRows}
+    `;
+        metaDiv.classList.remove('hidden');
+    }
+
+    function showLoading() {
+        document.getElementById('loading').style.display = 'block';
+        document.querySelector('.analyze-btn').disabled = true;
+        showTypingIndicator();
+    }
+    function hideLoading() {
+        document.getElementById('loading').style.display = 'none';
+        document.querySelector('.analyze-btn').disabled = false;
+        hideTypingIndicator();
+    }
+
+    // Clear chat history (UI + today's localStorage session)
+    function clearChat() {
+        const chatArea = document.getElementById('chat-messages');
+        if (!chatArea) return;
+        if (!confirm('Clear chat messages for today?')) return;
+        // Remove all messages except the typing indicator
+        Array.from(chatArea.children).forEach(child => {
+            if (child && child.id !== 'typing-indicator') {
+                chatArea.removeChild(child);
+            }
+        });
+        // Clear today's session key
+        try {
+            const sessionKey = `trucktalk_chat_${new Date().toDateString()}`;
+            localStorage.removeItem(sessionKey);
+        } catch (e) { console.warn('Failed to clear chat history:', e); }
+        // Do not add any chat bubble after clearing per request
+    }
+    function clearResults() {
+        document.getElementById('success-message').classList.add('hidden');
+        document.getElementById('issues-section').classList.add('hidden');
+        document.getElementById('warnings-section').classList.add('hidden');
+        document.getElementById('json-section').classList.add('hidden');
+        document.getElementById('meta-info').classList.add('hidden');
+        document.getElementById('header-mapping').classList.add('hidden');
+        document.getElementById('mapping-readonly-section').classList.add('hidden');
+        document.getElementById('mapping-grid').innerHTML = '';
+        const planDiv = document.getElementById('autofix-plan');
+        const applyBtn = document.getElementById('apply-autofix-btn');
+        if (planDiv) planDiv.innerHTML = 'Click "Suggest Auto-Fixes" to preview non-destructive changes.';
+        if (applyBtn) applyBtn.disabled = true;
+        currentAutoFixPlan = null;
+        const tzCb = document.getElementById('tz-apply-checkbox');
+        const tzSel = document.getElementById('tz-offset-select');
+        if (tzCb) tzCb.checked = false;
+        if (tzSel) { tzSel.value = ''; tzSel.disabled = true; }
+        const statusSection = document.getElementById('status-normalization-section');
+        const statusMapContainer = document.getElementById('status-map-container');
+        if (statusSection) statusSection.classList.add('hidden');
+        if (statusMapContainer) statusMapContainer.innerHTML = '';
+        const brokerSection = document.getElementById('broker-normalization-section');
+        const brokerMapContainer = document.getElementById('broker-map-container');
+        if (brokerSection) brokerSection.classList.add('hidden');
+        if (brokerMapContainer) brokerMapContainer.innerHTML = '';
+    }
+
+    function handleError(error) {
+        hideLoading();
+        console.error('Server error:', error);
+        addChatMessage('assistant', `Error: ${error.message || 'An unexpected error occurred. Please try again.'}`);
+        showNotification('Analysis failed. Please try again.', 'error');
+    }
+
+    function showNotification(message, type = 'info') {
+        console.log(`${type.toUpperCase()}: ${message}`);
+        addChatMessage('assistant', message);
+    }
+
+    function closeDialog() {
+        try { google.script.host.close(); }
+        catch (e) { console.log('Cannot close dialog from client side'); }
+    }
+
+    function formatDateTime(isoString) {
+        try { return new Date(isoString).toLocaleString(); }
+        catch (e) { return isoString; }
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    function debugState() {
+        console.log('Current Analysis Result:', currentAnalysisResult);
+        console.log('Current Header Overrides:', currentHeaderOverrides);
+        console.log('Current JSON Output:', currentJSONOutput);
+    }
+
+    function displayWarnings(result) {
+        const warnings = (result.issues || []).filter(i => i.severity === 'warn');
+        const section = document.getElementById('warnings-section');
+        const list = document.getElementById('warnings-list');
+        const count = document.getElementById('warnings-count');
+
+        if (!warnings.length) { section.classList.add('hidden'); return; }
+        section.classList.remove('hidden');
+        list.innerHTML = '';
+        count.textContent = `(${warnings.length})`;
+        warnings.forEach(issue => { list.appendChild(createIssueElement(issue)); });
+
+        // If status vocab warning present, show normalization UI
+        const hasStatusWarning = warnings.some(w => w.code === 'STATUS_VOCAB');
+        const normSection = document.getElementById('status-normalization-section');
+        if (hasStatusWarning) {
+            normSection.classList.remove('hidden');
+            loadStatusVocabulary();
+        } else {
+            normSection.classList.add('hidden');
+        }
+
+        // Always allow broker normalization (optional) when there is data
+        const brokerSection = document.getElementById('broker-normalization-section');
+        if (brokerSection) {
+            brokerSection.classList.remove('hidden');
+            loadBrokerVocabulary();
+        }
+    }
+
+    // Toggle: Show/Hide raw AnalysisResult JSON
+    function toggleRawResult() {
+        const box = document.getElementById('raw-json');
+        const cb = document.getElementById('show-raw-toggle');
+        if (!box || !cb) return;
+        if (cb.checked) {
+            try {
+                box.textContent = JSON.stringify(currentAnalysisResult || {}, null, 2);
+            } catch (e) {
+                box.textContent = 'Unable to stringify result';
+            }
+            box.classList.remove('hidden');
+        } else {
+            box.classList.add('hidden');
+        }
+    }
+
+    // ---- Auto-fixes (client) ----
+    function suggestAutoFixes() {
+        const planDiv = document.getElementById('autofix-plan');
+        const applyBtn = document.getElementById('apply-autofix-btn');
+        const suggestBtn = document.getElementById('suggest-autofix-btn');
+        if (planDiv) {
+            planDiv.innerHTML = `
+                <div class="autofix-item" style="opacity:.85;">
+                    <span class="icon time">⏳</span>
+                    <span class="summary">Analyzing possible fixes…</span>
+                    <span class="meta">Working</span>
+                </div>`;
+        }
+        if (applyBtn) applyBtn.disabled = true;
+        if (suggestBtn) suggestBtn.disabled = true;
+        google.script.run
+            .withSuccessHandler((plan) => {
+                currentAutoFixPlan = plan;
+                const items = [];
+                const createCount = (plan.missingColumns || []).length;
+                if (createCount) {
+                    items.push(...plan.missingColumns.map(c => `
+                        <div class="autofix-item">
+                            <span class="icon create">＋</span>
+                            <span class="summary">Create column: <strong>${escapeHtml(c.suggestedHeader)}</strong></span>
+                            <span class="meta">required</span>
+                        </div>`));
+                }
+                let totalFixCells = 0;
+                if (plan.dateFixes && plan.dateFixes.length) {
+                    plan.dateFixes.forEach(df => {
+                        if (df.fixableCount > 0) {
+                            totalFixCells += df.fixableCount;
+                            items.push(`
+                                <div class="autofix-item">
+                                    <span class="icon time">⏱</span>
+                                    <span class="summary">Normalize ${escapeHtml(df.field)} → <strong>${escapeHtml(df.targetHeader)}</strong></span>
+                                    <span class="meta">${df.fixableCount}/${df.totalRows} cells</span>
+                                </div>`);
+                        }
+                    });
+                }
+                if (planDiv) planDiv.innerHTML = items.length ? items.join('') : `
+                    <div class="autofix-item" style="opacity:.75;">
+                        <span class="icon create">＋</span>
+                        <span class="summary">No auto‑fixes available.</span>
+                    </div>`;
+                if (applyBtn) applyBtn.disabled = items.length === 0;
+                const badge = document.getElementById('autofix-badge-summary');
+                if (badge) {
+                    const parts = [];
+                    if (createCount) parts.push(`${createCount} column${createCount>1?'s':''}`);
+                    if (totalFixCells) parts.push(`${totalFixCells} cell${totalFixCells>1?'s':''}`);
+                    badge.textContent = parts.length ? `Plan: ${parts.join(', ')}` : 'No fixes';
+                }
+                if (suggestBtn) suggestBtn.disabled = false;
+            })
+            .withFailureHandler((err) => {
+                if (planDiv) planDiv.innerHTML = `
+                    <div class="autofix-item" style="opacity:.75;">
+                        <span class="icon time">⚠</span>
+                        <span class="summary">Failed to compute auto‑fix plan.</span>
+                    </div>`;
+                console.error(err);
+                if (suggestBtn) suggestBtn.disabled = false;
+            })
+            .getAutoFixPlan({ headerOverrides: currentHeaderOverrides });
+
+        // Load last timezone offset preference
+        google.script.run
+            .withSuccessHandler((res) => {
+                const tzSel = document.getElementById('tz-offset-select');
+                if (res && res.value && tzSel && !tzSel.value) tzSel.value = res.value;
+            })
+            .getUserPreference('tz_offset_last');
+    }
+
+    function applySelectedAutoFixes() {
+        if (!currentAutoFixPlan) { showNotification('No auto-fix plan available.', 'error'); return; }
+        const doCreate = (currentAutoFixPlan.missingColumns || []).length > 0;
+        const hasDate = (currentAutoFixPlan.dateFixes || []).some(df => df.fixableCount > 0);
+        const tzCb = document.getElementById('tz-apply-checkbox');
+        const tzSel = document.getElementById('tz-offset-select');
+        const tzApply = tzCb && tzCb.checked;
+        const tzOffset = tzApply && tzSel ? tzSel.value : '';
+
+        const msg = `Apply auto-fixes?\n\n` +
+            (doCreate ? `• Create columns: ${currentAutoFixPlan.missingColumns.map(c => c.suggestedHeader).join(', ')}\n` : '') +
+            (hasDate ? `• Normalize datetimes where safe (${currentAutoFixPlan.dateFixes.map(df => df.fixableCount).reduce((a,b)=>a+b,0)} cells)\n` : '') +
+            (tzApply && tzOffset ? `• Apply timezone offset ${tzOffset} to split PU/DEL\n` : '') +
+            `\nThis will edit the sheet in-place but only for the listed items.`;
+        if (!confirm(msg)) return;
+
+        const planDiv = document.getElementById('autofix-plan');
+        planDiv.textContent = 'Applying auto-fixes...';
+        const applyBtn = document.getElementById('apply-autofix-btn');
+        applyBtn.disabled = true;
+
+        google.script.run
+            .withSuccessHandler((res) => {
+                addChatMessage('assistant', `Auto-fixes applied. ${res.message}`);
+                // Re-run analysis to reflect changes
+                analyzeSheet();
+            })
+            .withFailureHandler((err) => {
+                console.error('Auto-fixes failed:', err);
+                planDiv.textContent = 'Auto-fixes failed. Please try again.';
+                applyBtn.disabled = false;
+            })
+            .applyAutoFixes({ createMissingColumns: doCreate, normalizeDates: hasDate, headerOverrides: currentHeaderOverrides, timezoneOffset: tzApply ? tzOffset : '' });
+
+        // Persist timezone selection
+        if (tzApply && tzOffset) {
+            google.script.run.setUserPreference('tz_offset_last', tzOffset);
+        }
+    }
+
+    // ---- Status normalization (client) ----
+    function loadStatusVocabulary() {
+        google.script.run
+            .withSuccessHandler((res) => {
+                const c = document.getElementById('status-map-container');
+                const uniqueSpan = document.getElementById('status-unique-count');
+                if (!c) return;
+                c.innerHTML = '';
+                if (uniqueSpan) uniqueSpan.textContent = res.unique ? `(${res.unique.length} unique)` : '';
+                const map = res.map || {};
+                (res.unique || []).forEach(item => {
+                    const row = document.createElement('div');
+                    row.style.display = 'flex';
+                    row.style.flexDirection = 'column';
+                    row.style.alignItems = 'stretch';
+                    row.style.gap = '6px';
+                    row.style.padding = '8px';
+                    row.style.marginBottom = '8px';
+                    row.style.border = '1px solid #eceff1';
+                    row.style.borderRadius = '8px';
+                    row.style.background = '#fff';
+
+                    const label = document.createElement('div');
+                    label.textContent = item.value + ` (${item.count})`;
+                    label.style.fontWeight = '500';
+                    label.style.color = '#202124';
+
+                    const input = document.createElement('input');
+                    input.type = 'text';
+                    input.value = map[item.value] || item.value;
+                    input.setAttribute('data-from', item.value);
+                    input.style.width = '100%';
+                    input.style.padding = '6px 8px';
+                    input.style.border = '1px solid #dadce0';
+                    input.style.borderRadius = '6px';
+                    input.style.fontSize = '13px';
+
+                    row.appendChild(label);
+                    row.appendChild(input);
+                    c.appendChild(row);
+                });
+            })
+            .getStatusVocabulary();
+    }
+
+    function saveStatusMapping() {
+        const c = document.getElementById('status-map-container');
+        if (!c) return;
+        const inputs = c.querySelectorAll('input[data-from]');
+        const map = {};
+        inputs.forEach(inp => { map[inp.getAttribute('data-from')] = inp.value; });
+        google.script.run
+            .withSuccessHandler(() => {
+                showNotification('Status mapping saved. Re-analyzing...', 'success');
+                analyzeSheet();
+            })
+            .withFailureHandler((e) => { console.error(e); showNotification('Failed to save mapping', 'error'); })
+            .saveStatusNormalizationMap(map);
+    }
+
+    function applyStatusToSheet() {
+        if (!confirm('Apply status normalization to the sheet? This will overwrite values in the Status column.')) return;
+        google.script.run
+            .withSuccessHandler((res) => {
+                showNotification(`Applied to sheet. Changed ${res.changed} cells.`,'success');
+                analyzeSheet();
+            })
+            .withFailureHandler((e) => { console.error(e); showNotification('Failed to apply to sheet', 'error'); })
+            .applyStatusNormalizationToSheet();
+    }
+
+    // Broker normalization client helpers
+    function loadBrokerVocabulary() {
+        google.script.run
+            .withSuccessHandler((res) => {
+                const c = document.getElementById('broker-map-container');
+                const uniqueSpan = document.getElementById('broker-unique-count');
+                if (!c) return;
+                c.innerHTML = '';
+                if (uniqueSpan) uniqueSpan.textContent = res.unique ? `(${res.unique.length} unique)` : '';
+                const map = res.map || {};
+                (res.unique || []).forEach(item => {
+                    const row = document.createElement('div');
+                    row.style.display = 'flex';
+                    row.style.flexDirection = 'column';
+                    row.style.alignItems = 'stretch';
+                    row.style.gap = '6px';
+                    row.style.padding = '8px';
+                    row.style.marginBottom = '8px';
+                    row.style.border = '1px solid #eceff1';
+                    row.style.borderRadius = '8px';
+                    row.style.background = '#fff';
+
+                    const label = document.createElement('div');
+                    label.textContent = item.value + ` (${item.count})`;
+                    label.style.fontWeight = '500';
+                    label.style.color = '#202124';
+
+                    const input = document.createElement('input');
+                    input.type = 'text';
+                    input.value = map[item.value] || item.value;
+                    input.setAttribute('data-from', item.value);
+                    input.style.width = '100%';
+                    input.style.padding = '6px 8px';
+                    input.style.border = '1px solid #dadce0';
+                    input.style.borderRadius = '6px';
+                    input.style.fontSize = '13px';
+
+                    row.appendChild(label);
+                    row.appendChild(input);
+                    c.appendChild(row);
+                });
+            })
+            .getBrokerVocabulary();
+    }
+
+    function saveBrokerMapping() {
+        const c = document.getElementById('broker-map-container');
+        if (!c) return;
+        const inputs = c.querySelectorAll('input[data-from]');
+        const map = {};
+        inputs.forEach(inp => { map[inp.getAttribute('data-from')] = inp.value; });
+        google.script.run
+            .withSuccessHandler(() => {
+                showNotification('Broker mapping saved. Re-analyzing...', 'success');
+                analyzeSheet();
+            })
+            .withFailureHandler((e) => { console.error(e); showNotification('Failed to save broker mapping', 'error'); })
+            .saveBrokerNormalizationMap(map);
+    }
+
+    function applyBrokerToSheet() {
+        if (!confirm('Apply broker normalization to the sheet? This will overwrite values in the Broker column.')) return;
+        google.script.run
+            .withSuccessHandler((res) => {
+                showNotification(`Applied to sheet. Changed ${res.changed} broker cells.`,'success');
+                analyzeSheet();
+            })
+            .withFailureHandler((e) => { console.error(e); showNotification('Failed to apply broker mapping to sheet', 'error'); })
+            .applyBrokerNormalizationToSheet();
+    }
+</script>
+</body>
+</html>
