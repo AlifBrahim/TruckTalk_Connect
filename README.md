@@ -46,10 +46,11 @@ These are declared in `appsscript.json` and are required for normal operation:
 
 Option A — Apps Script Editor only (no CLI):
 - Open a Google Sheet → Extensions → Apps Script.
-- Create files `server.gs`, `ui.html`, `tests.gs` and copy contents from this repo.
+- Replace `Code.gs` with the contents of `server.gs` from this repo.
+- Create files `ui.html`, `tests.gs` and copy contents from this repo.
 - Replace the default `appsscript.json` with this repo’s manifest (Editor → Project Settings → Show manifest file).
-- In the editor: Deploy → Test deployments → Select “Editor Add‑on” for Sheets and install.
-- Back in the Sheet: Extensions → TruckTalk Connect → Open Sidebar → click “Analyze current tab”.
+- Run the `showSidebar` function in the editor, then return to the Sheet.
+
 
 Option B — CLASP (recommended for iteration):
 - Prereqs: `npm i -g @google/clasp`, signed in with a Google account.
